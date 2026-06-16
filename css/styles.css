@@ -586,3 +586,53 @@ input, select { font-family: inherit; }
   .track-card:hover { transform: none; }
   .track-card:hover .card-art { transform: none; }
 }
+
+/* ── Provider switcher ───────────────────────────────────────────────── */
+.provider-switcher {
+  display: flex;
+  gap: 4px;
+  background: var(--surface-2);
+  padding: 3px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+}
+.provider-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  transition: color 0.15s, background 0.15s;
+  white-space: nowrap;
+}
+.provider-btn svg { flex-shrink: 0; }
+.provider-btn:hover { color: var(--text); background: var(--surface-3); }
+.provider-btn.active[data-provider="spotify"] {
+  background: rgba(29,185,84,0.15);
+  color: #1DB954;
+}
+.provider-btn.active[data-provider="qobuz"] {
+  background: rgba(0,180,216,0.15);
+  color: #00B4D8;
+}
+
+/* ── Qobuz button variant ───────────────────────────────────────────── */
+.btn-qobuz {
+  background: #00B4D8;
+}
+.btn-qobuz:hover { background: #00caf0; }
+
+/* ── Dynamic chip-provider (color set inline by JS) ─────────────────── */
+.chip-provider {
+  border: 1px solid transparent;
+  font-weight: 600;
+}
+
+/* ── Deezer ──────────────────────────────────────────────────────────── */
+.provider-btn.active[data-provider="deezer"] {
+  background: rgba(162,56,255,0.12);
+  color: #A238FF;
+}

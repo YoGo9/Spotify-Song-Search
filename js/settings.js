@@ -1,32 +1,41 @@
 // settings.js — panel UI + localStorage persistence
 
 const KEYS = {
-  clientId:      'sss_client_id',
-  clientSecret:  'sss_client_secret',
-  harmonyUrl:    'sss_harmony_url',
-  mbUrl:         'sss_mb_url',
-  perPage:       'sss_per_page',
+  spotifyClientId:     'sss_client_id',
+  spotifyClientSecret: 'sss_client_secret',
+  qobuzAppId:          'sss_qobuz_app_id',
+  harmonyUrl:          'sss_harmony_url',
+  mbUrl:               'sss_mb_url',
+  perPage:             'sss_per_page',
+  activeProvider:      'sss_active_provider',
 };
 
 const DEFAULTS = {
-  harmonyUrl: 'https://harmony.pulsewidth.org.uk',
-  mbUrl:      'https://beta.musicbrainz.org',
-  perPage:    20,
+  harmonyUrl:     'https://harmony.pulsewidth.org.uk',
+  mbUrl:          'https://beta.musicbrainz.org',
+  perPage:        20,
+  activeProvider: 'deezer',
 };
 
 export function getSettings() {
   return {
-    clientId:    localStorage.getItem(KEYS.clientId)     || '',
-    clientSecret:localStorage.getItem(KEYS.clientSecret) || '',
-    harmonyUrl:  localStorage.getItem(KEYS.harmonyUrl)   || DEFAULTS.harmonyUrl,
-    mbUrl:       localStorage.getItem(KEYS.mbUrl)        || DEFAULTS.mbUrl,
-    perPage:     parseInt(localStorage.getItem(KEYS.perPage) || DEFAULTS.perPage, 10),
+    spotifyClientId:     localStorage.getItem(KEYS.spotifyClientId)     || '',
+    spotifyClientSecret: localStorage.getItem(KEYS.spotifyClientSecret) || '',
+    qobuzAppId:          localStorage.getItem(KEYS.qobuzAppId)          || '',
+    harmonyUrl:          localStorage.getItem(KEYS.harmonyUrl)           || DEFAULTS.harmonyUrl,
+    mbUrl:               localStorage.getItem(KEYS.mbUrl)               || DEFAULTS.mbUrl,
+    perPage:             parseInt(localStorage.getItem(KEYS.perPage)     || DEFAULTS.perPage, 10),
+    activeProvider:      localStorage.getItem(KEYS.activeProvider)       || DEFAULTS.activeProvider,
   };
 }
 
-export function saveCredentials(clientId, clientSecret) {
-  localStorage.setItem(KEYS.clientId, clientId);
-  localStorage.setItem(KEYS.clientSecret, clientSecret);
+export function saveSpotifyCredentials(clientId, clientSecret) {
+  localStorage.setItem(KEYS.spotifyClientId,     clientId);
+  localStorage.setItem(KEYS.spotifyClientSecret, clientSecret);
+}
+
+export function saveQobuzAppId(appId) {
+  localStorage.setItem(KEYS.qobuzAppId, appId);
 }
 
 export function saveUrls(harmonyUrl, mbUrl) {
@@ -38,23 +47,35 @@ export function savePerPage(n) {
   localStorage.setItem(KEYS.perPage, n);
 }
 
-export function initSettingsPanel(onCredentialsSaved) {
-  const panel     = document.getElementById('settings-panel');
-  const overlay   = document.getElementById('settings-overlay');
-  const openBtn   = document.getElementById('settings-btn');
-  const closeBtn  = document.getElementById('settings-close');
-  const openInline= document.getElementById('open-settings-inline');
+export function saveActiveProvider(id) {
+  localStorage.setItem(KEYS.activeProvider, id);
+}
 
-  const cidInput  = document.getElementById('client-id');
-  const csecInput = document.getElementById('client-secret');
-  const authStatus= document.getElementById('auth-status');
+export function initSettingsPanel({ onSpotifyCredentialsSaved, onQobuzAppIdSaved }) {
+  const panel      = document.getElementById('settings-panel');
+  const overlay    = document.getElementById('settings-overlay');
+  const openBtn    = document.getElementById('settings-btn');
+  const closeBtn   = document.getElementById('settings-close');
+  const openInline = document.getElementById('open-settings-inline');
+
+  // Spotify
+  const cidInput     = document.getElementById('client-id');
+  const csecInput    = document.getElementById('client-secret');
+  const authStatus   = document.getElementById('auth-status');
   const saveCredsBtn = document.getElementById('save-credentials');
 
+  // Qobuz
+  const qobuzInput   = document.getElementById('qobuz-app-id');
+  const qobuzStatus  = document.getElementById('qobuz-status');
+  const saveQobuzBtn = document.getElementById('save-qobuz');
+
+  // URLs
   const harmonyInput = document.getElementById('harmony-url');
   const mbInput      = document.getElementById('mb-url');
   const urlStatus    = document.getElementById('url-status');
   const saveUrlsBtn  = document.getElementById('save-urls');
 
+  // Per page
   const perPageSelect = document.getElementById('results-per-page');
 
   function openPanel() {
@@ -75,43 +96,53 @@ export function initSettingsPanel(onCredentialsSaved) {
   overlay.addEventListener('click', closePanel);
   if (openInline) openInline.addEventListener('click', openPanel);
 
-  // Populate fields from storage
+  // Populate from storage
   const s = getSettings();
-  cidInput.value       = s.clientId;
-  csecInput.value      = s.clientSecret;
-  harmonyInput.value   = s.harmonyUrl !== DEFAULTS.harmonyUrl ? s.harmonyUrl : '';
+  cidInput.value     = s.spotifyClientId;
+  csecInput.value    = s.spotifyClientSecret;
+  qobuzInput.value   = s.qobuzAppId;
+  harmonyInput.value = s.harmonyUrl !== DEFAULTS.harmonyUrl ? s.harmonyUrl : '';
   harmonyInput.placeholder = DEFAULTS.harmonyUrl;
-  mbInput.value        = s.mbUrl !== DEFAULTS.mbUrl ? s.mbUrl : '';
-  mbInput.placeholder  = DEFAULTS.mbUrl;
-  perPageSelect.value  = s.perPage;
+  mbInput.value      = s.mbUrl !== DEFAULTS.mbUrl ? s.mbUrl : '';
+  mbInput.placeholder = DEFAULTS.mbUrl;
+  perPageSelect.value = s.perPage;
 
-  if (s.clientId && s.clientSecret) {
-    setAuthStatus('Credentials saved', 'success');
-  }
+  if (s.spotifyClientId && s.spotifyClientSecret) setStatus(authStatus, 'Credentials saved', 'success');
+  if (s.qobuzAppId) setStatus(qobuzStatus, 'App ID saved', 'success');
 
-  // Save credentials
+  // Save Spotify
   saveCredsBtn.addEventListener('click', async () => {
     const id  = cidInput.value.trim();
     const sec = csecInput.value.trim();
-    if (!id || !sec) {
-      setAuthStatus('Both fields are required', 'error');
-      return;
-    }
-    saveCredentials(id, sec);
-    setAuthStatus('Authenticating…', '');
+    if (!id || !sec) { setStatus(authStatus, 'Both fields required', 'error'); return; }
+    saveSpotifyCredentials(id, sec);
+    setStatus(authStatus, 'Authenticating…', '');
     try {
-      await onCredentialsSaved(id, sec);
-      setAuthStatus('Authenticated ✓', 'success');
+      await onSpotifyCredentialsSaved(id, sec);
+      setStatus(authStatus, 'Authenticated ✓', 'success');
     } catch (err) {
-      setAuthStatus('Auth failed: ' + err.message, 'error');
+      setStatus(authStatus, 'Auth failed: ' + err.message, 'error');
+    }
+  });
+
+  // Save Qobuz
+  saveQobuzBtn.addEventListener('click', async () => {
+    const id = qobuzInput.value.trim();
+    if (!id) { setStatus(qobuzStatus, 'App ID required', 'error'); return; }
+    saveQobuzAppId(id);
+    setStatus(qobuzStatus, 'Testing…', '');
+    try {
+      await onQobuzAppIdSaved(id);
+      setStatus(qobuzStatus, 'Connected ✓', 'success');
+    } catch (err) {
+      setStatus(qobuzStatus, 'Failed: ' + err.message, 'error');
     }
   });
 
   // Save URLs
   saveUrlsBtn.addEventListener('click', () => {
     saveUrls(harmonyInput.value.trim(), mbInput.value.trim());
-    urlStatus.textContent = 'Saved ✓';
-    urlStatus.className = 'save-status status-success';
+    setStatus(urlStatus, 'Saved ✓', 'success');
     setTimeout(() => { urlStatus.textContent = ''; }, 2000);
   });
 
@@ -119,9 +150,9 @@ export function initSettingsPanel(onCredentialsSaved) {
   perPageSelect.addEventListener('change', () => {
     savePerPage(parseInt(perPageSelect.value, 10));
   });
+}
 
-  function setAuthStatus(msg, type) {
-    authStatus.textContent = msg;
-    authStatus.className = 'auth-status' + (type ? ' status-' + type : '');
-  }
+function setStatus(el, msg, type) {
+  el.textContent = msg;
+  el.className   = 'save-status' + (type ? ' status-' + type : '');
 }
