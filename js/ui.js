@@ -5,33 +5,25 @@ import { getSettings } from './settings.js';
 const template = document.getElementById('track-card-template');
 const grid     = document.getElementById('results');
 
-// ── Audio preview state (one player, globally shared) ──────────────────
-let activeAudio    = null;
-let activeBtn      = null;
-let progressTimer  = null;
+// ── Audio preview (one globally shared player) ─────────────────────────
+let activeAudio   = null;
+let activeBtn     = null;
+let progressTimer = null;
 
 function stopCurrent() {
-  if (activeAudio) {
-    activeAudio.pause();
-    activeAudio.src = '';
-    activeAudio = null;
-  }
-  if (activeBtn) {
-    setPlayingState(activeBtn, false);
-    activeBtn = null;
-  }
+  if (activeAudio) { activeAudio.pause(); activeAudio.src = ''; activeAudio = null; }
+  if (activeBtn)   { setPlayingState(activeBtn, false); activeBtn = null; }
   clearInterval(progressTimer);
   progressTimer = null;
 }
 
 function setPlayingState(btn, playing) {
-  const card     = btn.closest('.track-card');
-  const progress = card.querySelector('.preview-progress');
-  const bar      = card.querySelector('.preview-progress-bar');
-
+  const card = btn.closest('.track-card');
   btn.querySelector('.icon-play').style.display  = playing ? 'none' : '';
   btn.querySelector('.icon-pause').style.display = playing ? ''     : 'none';
   btn.classList.toggle('playing', playing);
+  const progress = card.querySelector('.preview-progress');
+  const bar      = card.querySelector('.preview-progress-bar');
   progress.style.display = playing ? '' : 'none';
   if (!playing) bar.style.width = '0%';
 }
@@ -45,82 +37,56 @@ function startProgressTracker(audio, bar) {
 }
 
 function playPreview(btn, previewUrl) {
-  // If clicking the currently playing card — pause it
-  if (activeBtn === btn) {
-    stopCurrent();
-    return;
-  }
-
-  // Stop whatever was playing
+  if (activeBtn === btn) { stopCurrent(); return; }
   stopCurrent();
-
   const card = btn.closest('.track-card');
   const bar  = card.querySelector('.preview-progress-bar');
-
   const audio = new Audio(previewUrl);
   audio.volume = 0.8;
-
   activeAudio = audio;
   activeBtn   = btn;
   setPlayingState(btn, true);
   startProgressTracker(audio, bar);
-
-  audio.play().catch(() => {
-    // Autoplay blocked or network error — reset quietly
-    stopCurrent();
-  });
-
-  audio.addEventListener('ended', () => {
-    bar.style.width = '100%';
-    setTimeout(() => stopCurrent(), 300);
-  });
-
+  audio.play().catch(() => stopCurrent());
+  audio.addEventListener('ended', () => { bar.style.width = '100%'; setTimeout(stopCurrent, 300); });
   audio.addEventListener('error', () => stopCurrent());
 }
 
-// Stop playback when user navigates away / loads more results
 export function stopPreview() { stopCurrent(); }
 
+// ── Render ──────────────────────────────────────────────────────────────
 
 /**
- * Render an array of Spotify track objects into the grid.
- * @param {Object[]} tracks
- * @param {boolean}  append  - false = clear grid first
- * @returns {Map<string, HTMLElement>}  trackId → card element (for ISRC injection)
+ * Render normalized tracks into the grid.
+ * @param {Object[]} tracks   - normalized track objects
+ * @param {boolean}  append
+ * @param {Object}   providerMeta - { id, label, color, icon, ... }
+ * @returns {Map<string, HTMLElement>}
  */
-export function renderTracks(tracks, append = false) {
-  if (!append) {
-    stopCurrent();
-    grid.innerHTML = '';
-  }
-
+export function renderTracks(tracks, append = false, providerMeta = {}) {
+  if (!append) { stopCurrent(); grid.innerHTML = ''; }
   const cardMap = new Map();
-
   for (const track of tracks) {
-    const card = buildCard(track);
+    const card = buildCard(track, providerMeta);
     grid.appendChild(card);
     cardMap.set(track.id, card);
   }
-
   return cardMap;
 }
 
 /**
- * Inject ISRCs and preview URLs into already-rendered cards.
- * @param {Map<string, HTMLElement>} cardMap    trackId → element
- * @param {Object}                  detailMap  trackId → { isrc, previewUrl }
+ * Inject ISRCs and preview URLs into rendered cards.
+ * @param {Map<string, HTMLElement>} cardMap
+ * @param {Object} detailMap  id → { isrc, previewUrl }
  */
 export function injectTrackDetails(cardMap, detailMap) {
   const { mbUrl } = getSettings();
   const base = (mbUrl || 'https://beta.musicbrainz.org').replace(/\/$/, '');
 
-  console.log('[injectTrackDetails] detailMap:', detailMap);
-
   for (const [id, card] of cardMap) {
     const detail     = detailMap[id] || {};
     const isrc       = detail.isrc       || null;
     const previewUrl = detail.previewUrl || null;
-    console.log(`[inject] id=${id} isrc=${isrc} previewUrl=${previewUrl}`);
 
     // ISRC
     const valueEl = card.querySelector('.isrc-value');
@@ -139,53 +105,42 @@ export function injectTrackDetails(cardMap, detailMap) {
       valueEl.classList.remove('loading');
     }
 
-    // Preview button — wire it now that we have the URL from the batch call
+    // Preview button
     const previewBtn = card.querySelector('.preview-btn');
     if (previewUrl) {
       previewBtn.style.display = '';
-      // Remove any previous listener by cloning, then re-attach
       const freshBtn = previewBtn.cloneNode(true);
       previewBtn.replaceWith(freshBtn);
-      freshBtn.addEventListener('click', (e) => {
-        e.preventDefault();
-        playPreview(freshBtn, previewUrl);
-      });
+      freshBtn.addEventListener('click', (e) => { e.preventDefault(); playPreview(freshBtn, previewUrl); });
     } else {
       previewBtn.style.display = 'none';
     }
   }
 }
 
-/** Show error message in the grid area */
 export function showError(msg) {
   grid.innerHTML = `<div class="error-msg">${escHtml(msg)}</div>`;
 }
 
-/** Show/hide the loading bar */
 export function setLoading(visible) {
   document.getElementById('loading').style.display = visible ? 'block' : 'none';
 }
 
-/** Update the results count line */
 export function setResultsMeta(showing, total) {
-  const el = document.getElementById('results-meta');
+  const el    = document.getElementById('results-meta');
   const count = document.getElementById('results-count');
-  if (showing === 0) {
-    el.style.display = 'none';
-    return;
-  }
+  if (showing === 0) { el.style.display = 'none'; return; }
   el.style.display = '';
   count.textContent = `${showing.toLocaleString()} of ${total.toLocaleString()} results`;
 }
 
-/** Show/hide load more button */
 export function setLoadMore(visible) {
   document.getElementById('load-more-wrap').style.display = visible ? 'block' : 'none';
 }
 
-// ── Private ──────────────────────────────────────────────────────────
+// ── Card builder ────────────────────────────────────────────────────────
 
-function buildCard(track) {
+function buildCard(track, providerMeta) {
   const { harmonyUrl } = getSettings();
   const harmony = (harmonyUrl || 'https://harmony.pulsewidth.org.uk').replace(/\/$/, '');
 
@@ -194,49 +149,53 @@ function buildCard(track) {
 
   // Art
   const img = card.querySelector('.card-art');
-  const artUrl = track.album.images?.[0]?.url;
-  if (artUrl) {
-    img.src = artUrl;
-    img.alt = track.album.name + ' cover';
+  if (track.artUrl) {
+    img.src = track.artUrl;
+    img.alt = track.album + ' cover';
   } else {
     img.parentElement.style.background = '#1e1e1e';
   }
 
   // Text
-  const artists = track.artists.map(a => a.name).join(', ');
+  const artistStr = track.artists.join(', ');
   card.querySelector('.card-title').textContent  = track.name;
-  card.querySelector('.card-artist').textContent = artists;
-  card.querySelector('.card-album').textContent  = track.album.name;
-  card.querySelector('.card-year').textContent   = track.album.release_date?.slice(0, 4) || '';
-  card.querySelector('.card-pop').textContent    = `★ ${track.popularity}`;
+  card.querySelector('.card-artist').textContent = artistStr;
+  card.querySelector('.card-album').textContent  = track.album;
+  card.querySelector('.card-year').textContent   = track.year;
+  card.querySelector('.card-pop').textContent    = track.popularity !== null ? `★ ${track.popularity}` : '';
 
-  // Store copy values on title/artist copy buttons
+  // Copy values
   card.querySelector('[data-copy="title"]').dataset.value  = track.name;
-  card.querySelector('[data-copy="artist"]').dataset.value = artists;
+  card.querySelector('[data-copy="artist"]').dataset.value = artistStr;
 
-  // ISRC placeholder (filled by injectTrackDetails)
+  // ISRC placeholder
   card.querySelector('.isrc-value').textContent = '…';
   card.querySelector('.isrc-value').classList.add('loading');
 
-  // Links
-  const spotifyUrl = track.external_urls.spotify;
-  const albumUrl   = track.album.external_urls.spotify;
-  const odesliUrl  = 'https://song.link/s/' + track.id;
-  const harmonyLink= `${harmony}/release?url=${encodeURIComponent(albumUrl)}&category=all`;
+  // Provider chip label + color
+  const providerChip = card.querySelector('.chip-provider');
+  if (providerChip && providerMeta.label) {
+    providerChip.textContent = providerMeta.label;
+    providerChip.href = track.trackUrl;
+    providerChip.style.background = providerMeta.colorDim  || '';
+    providerChip.style.color      = providerMeta.color     || '';
+    providerChip.style.borderColor= providerMeta.colorBorder || '';
+  }
 
-  card.querySelector('.chip-spotify').href = spotifyUrl;
+  // Links
+  const harmonyLink = `${harmony}/release?url=${encodeURIComponent(track.albumUrl)}&category=all`;
 
   const copyUrlChip = card.querySelector('.chip-copy-url');
-  copyUrlChip.dataset.value = spotifyUrl;
+  copyUrlChip.dataset.value = track.trackUrl;
   copyUrlChip.addEventListener('click', (e) => {
     e.preventDefault();
-    copyToClipboard(spotifyUrl, copyUrlChip, 'Copy URL', 'Copied!');
+    copyToClipboard(track.trackUrl, copyUrlChip, 'Copy URL', 'Copied!');
   });
 
-  card.querySelector('.chip-odesli').href  = odesliUrl;
+  card.querySelector('.chip-odesli').href  = track.odesliUrl;
   card.querySelector('.chip-harmony').href = harmonyLink;
 
-  // Wire all copy buttons
+  // Wire copy buttons
   card.querySelectorAll('.copy-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       const val = btn.dataset.value;
@@ -247,29 +206,20 @@ function buildCard(track) {
   return card;
 }
 
-function copyToClipboard(text, triggerEl, originalTitle, successTitle) {
+function copyToClipboard(text, el, origLabel, doneLabel) {
   navigator.clipboard.writeText(text).then(() => {
-    triggerEl.classList.add('copied');
-    if (successTitle) triggerEl.textContent = successTitle;
-    setTimeout(() => {
-      triggerEl.classList.remove('copied');
-      if (originalTitle) triggerEl.textContent = originalTitle;
-    }, 1500);
+    el.classList.add('copied');
+    if (doneLabel) el.textContent = doneLabel;
+    setTimeout(() => { el.classList.remove('copied'); if (origLabel) el.textContent = origLabel; }, 1500);
   }).catch(() => {
-    // Fallback for older browsers
     const ta = document.createElement('textarea');
-    ta.value = text;
-    ta.style.position = 'fixed';
-    ta.style.opacity = '0';
-    document.body.appendChild(ta);
-    ta.select();
-    document.execCommand('copy');
-    document.body.removeChild(ta);
-    triggerEl.classList.add('copied');
-    setTimeout(() => triggerEl.classList.remove('copied'), 1500);
+    ta.value = text; ta.style.cssText = 'position:fixed;opacity:0';
+    document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
+    el.classList.add('copied');
+    setTimeout(() => el.classList.remove('copied'), 1500);
   });
 }
 
 function escHtml(str) {
-  return str.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  return str.replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
 }
