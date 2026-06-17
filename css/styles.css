@@ -357,7 +357,6 @@ input, select { font-family: inherit; }
   grid-template-columns: 1fr;
   gap: 8px;
 }
-
 @media (min-width: 700px) {
   .results-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
 }
@@ -365,7 +364,7 @@ input, select { font-family: inherit; }
   .results-grid { grid-template-columns: 1fr 1fr 1fr; }
 }
 
-/* ── Track card — horizontal compact layout ── */
+/* ── Track card — fixed height horizontal layout ── */
 .track-card {
   background: var(--surface);
   border: 1px solid var(--border);
@@ -373,14 +372,14 @@ input, select { font-family: inherit; }
   overflow: hidden;
   display: flex;
   flex-direction: row;
-  align-items: stretch;
+  height: 108px;
   transition: border-color 0.15s;
 }
 .track-card:hover { border-color: var(--border-mid); }
 
-/* Thumbnail */
+/* Thumbnail — fills full card height */
 .card-art-wrap {
-  width: 80px;
+  width: 108px;
   flex-shrink: 0;
   position: relative;
   background: var(--surface-2);
@@ -392,7 +391,7 @@ input, select { font-family: inherit; }
   display: block;
 }
 
-/* Preview button overlay on thumbnail */
+/* Preview button overlay */
 .preview-btn {
   position: absolute;
   inset: 0;
@@ -417,7 +416,7 @@ input, select { font-family: inherit; }
 .preview-btn:hover svg { transform: scale(1.1); }
 .preview-btn:active svg { transform: scale(0.93); }
 
-/* Progress bar along bottom of thumbnail */
+/* Progress bar */
 .preview-progress {
   position: absolute;
   bottom: 0; left: 0; right: 0;
@@ -438,19 +437,18 @@ input, select { font-family: inherit; }
   padding: 10px 12px;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  justify-content: space-between;
+  overflow: hidden;
 }
 
 .card-title-row,
 .card-artist-row {
   display: flex;
   align-items: center;
-  gap: 5px;
 }
 .card-title {
   font-size: 0.88rem;
   font-weight: 600;
-  flex: 1;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -459,28 +457,19 @@ input, select { font-family: inherit; }
 .card-artist {
   font-size: 0.78rem;
   color: var(--text-muted);
-  flex: 1;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 .card-album {
-  font-size: 0.72rem;
+  font-size: 0.7rem;
   color: var(--text-dim);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.card-meta-row {
-  display: flex;
-  gap: 8px;
-}
-.card-year,
-.card-pop {
-  font-size: 0.68rem;
-  color: var(--text-dim);
-  font-family: var(--mono);
-}
+.card-meta-row { display: none; } /* hidden at this size */
+.card-year, .card-pop { display: none; }
 
 /* Copy button */
 .copy-btn {
@@ -502,12 +491,9 @@ input, select { font-family: inherit; }
   display: flex;
   align-items: center;
   gap: 5px;
-  margin-top: 5px;
-  padding-top: 5px;
-  border-top: 1px solid var(--border);
 }
 .isrc-label {
-  font-size: 0.6rem;
+  font-size: 0.58rem;
   font-weight: 600;
   letter-spacing: 0.07em;
   text-transform: uppercase;
@@ -516,32 +502,36 @@ input, select { font-family: inherit; }
 }
 .isrc-value {
   font-family: var(--mono);
-  font-size: 0.68rem;
+  font-size: 0.65rem;
   color: var(--text-muted);
   flex: 1;
-  letter-spacing: 0.02em;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 .isrc-value.loading { color: var(--text-dim); font-style: italic; }
 
-/* Links / chips */
+/* Links / chips — single scrollable row, no wrap */
 .card-links {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 4px;
-  margin-top: 6px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }
+.card-links::-webkit-scrollbar { display: none; }
+
 .chip {
   display: inline-flex;
   align-items: center;
   gap: 4px;
   padding: 3px 7px;
   border-radius: 20px;
-  font-size: 0.65rem;
+  font-size: 0.63rem;
   font-weight: 500;
   white-space: nowrap;
+  flex-shrink: 0;
   cursor: pointer;
   transition: opacity 0.15s, transform 0.1s;
   border: 1px solid transparent;
@@ -583,7 +573,8 @@ input, select { font-family: inherit; }
 @media (max-width: 600px) {
   .advanced-fields { grid-template-columns: 1fr; }
   .settings-panel { width: 100%; }
-  .card-art-wrap { width: 72px; }
+  .track-card { height: 96px; }
+  .card-art-wrap { width: 96px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
