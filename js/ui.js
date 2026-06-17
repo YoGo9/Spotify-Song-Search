@@ -164,9 +164,7 @@ function buildCard(track, providerMeta) {
   card.querySelector('.card-year').textContent   = track.year;
   card.querySelector('.card-pop').textContent    = track.popularity !== null ? `★ ${track.popularity}` : '';
 
-  // Copy values
-  card.querySelector('[data-copy="title"]').dataset.value  = track.name;
-  card.querySelector('[data-copy="artist"]').dataset.value = artistStr;
+  // (Title/artist copy buttons removed for compactness)
 
   // ISRC placeholder
   card.querySelector('.isrc-value').textContent = '…';
@@ -184,13 +182,6 @@ function buildCard(track, providerMeta) {
 
   // Links
   const harmonyLink = `${harmony}/release?url=${encodeURIComponent(track.albumUrl)}&category=all`;
-
-  const copyUrlChip = card.querySelector('.chip-copy-url');
-  copyUrlChip.dataset.value = track.trackUrl;
-  copyUrlChip.addEventListener('click', (e) => {
-    e.preventDefault();
-    copyToClipboard(track.trackUrl, copyUrlChip, 'Copy URL', 'Copied!');
-  });
 
   card.querySelector('.chip-odesli').href  = track.odesliUrl;
   card.querySelector('.chip-harmony').href = harmonyLink;
